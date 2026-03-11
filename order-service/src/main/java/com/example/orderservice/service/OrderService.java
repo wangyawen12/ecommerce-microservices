@@ -2,6 +2,7 @@
 
 package com.example.orderservice.service;
 
+import com.example.orderservice.client.InventoryClient;
 import com.example.orderservice.dto.OrderRequest;
 import com.example.orderservice.model.Order;
 import com.example.orderservice.repository.OrderRepository;
@@ -17,14 +18,22 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final InventoryClient inventoryClient;
 
-    public OrderService(OrderRepository orderRepository) {
+    public OrderService(OrderRepository orderRepository, InventoryClient inventoryClient) {
         this.orderRepository = orderRepository;
+        this.inventoryClient = inventoryClient;
     }
 
     public void placeOrder(OrderRequest orderRequest) {
-        Order order = mapToOrder(orderRequest);
-        orderRepository.save(order);
+        boolean inStock = inventoryClient.isInStock(orderRequest.skuCode(), orderRequest.quantity());
+
+        if (inStock) {
+            Order order = mapToOrder(orderRequest);
+            orderRepository.save(order);
+        } else {
+            throw new RuntimeException("Product with skuCode " + orderRequest.skuCode() + " is not in stock");
+        }
     }
 
     private Order mapToOrder(OrderRequest orderRequest) {
