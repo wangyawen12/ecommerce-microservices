@@ -21,6 +21,7 @@
         <module>order-service</module>
         <module>inventory-service</module>
         <module>eureka</module>
+        <module>api-gateway</module>
 
     </modules>
 
