@@ -17,9 +17,11 @@ import reactor.core.publisher.Mono;
 public class JwtAuthenticationFilter implements WebFilter {
 
     private final JwtService jwtService;
+    private final RedisTokenService redisTokenService;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, RedisTokenService redisTokenService) {
         this.jwtService = jwtService;
+        this.redisTokenService = redisTokenService;
     }
 
     @Override
@@ -47,6 +49,10 @@ public class JwtAuthenticationFilter implements WebFilter {
 
         String username = jwtService.extractUsername(jwt);
 
+        if (!redisTokenService.isLoginActive(username)) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(
                         username,

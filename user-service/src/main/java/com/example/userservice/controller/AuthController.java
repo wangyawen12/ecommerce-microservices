@@ -11,6 +11,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.data.redis.core.StringRedisTemplate;
+import java.util.concurrent.TimeUnit;
+
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -19,15 +22,18 @@ public class AuthController {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     public AuthController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
                           AuthenticationManager authenticationManager,
-                          JwtService jwtService) {
+                          JwtService jwtService,
+                          StringRedisTemplate stringRedisTemplate) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.stringRedisTemplate = stringRedisTemplate;
     }
 
     @PostMapping("/register")
@@ -55,6 +61,8 @@ public class AuthController {
         );
 
         String token = jwtService.generateToken(request.username());
+        String redisKey = "login_user:" + request.username();
+        stringRedisTemplate.opsForValue().set(redisKey, "logged_in", 1, TimeUnit.DAYS);
         return new AuthResponse(token);
     }
 }
