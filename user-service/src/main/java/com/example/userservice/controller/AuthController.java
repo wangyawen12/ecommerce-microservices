@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import org.springframework.data.redis.core.StringRedisTemplate;
 import java.util.concurrent.TimeUnit;
+import org.springframework.http.HttpHeaders;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -65,4 +66,21 @@ public class AuthController {
         stringRedisTemplate.opsForValue().set(redisKey, "logged_in", 1, TimeUnit.DAYS);
         return new AuthResponse(token);
     }
+
+
+    @PostMapping("/logout")
+    public String logout(@RequestHeader(HttpHeaders.AUTHORIZATION) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new RuntimeException("Missing or invalid Authorization header");
+        }
+
+        String jwt = authHeader.substring(7);
+        String username = jwtService.extractUsername(jwt);
+
+        String redisKey = "login_user:" + username;
+        stringRedisTemplate.delete(redisKey);
+
+        return "Logout successful";
+    }
+
 }
