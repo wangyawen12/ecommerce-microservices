@@ -1,6 +1,8 @@
 
 
 package com.example.orderservice.service;
+import com.example.orderservice.event.OrderPlacedEvent;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import com.example.orderservice.client.InventoryClient;
 import com.example.orderservice.dto.OrderRequest;
@@ -19,10 +21,12 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final InventoryClient inventoryClient;
+    private final KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
-    public OrderService(OrderRepository orderRepository, InventoryClient inventoryClient) {
+    public OrderService(OrderRepository orderRepository, InventoryClient inventoryClient, KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate) {
         this.orderRepository = orderRepository;
         this.inventoryClient = inventoryClient;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     public void placeOrder(OrderRequest orderRequest) {
@@ -31,6 +35,16 @@ public class OrderService {
         if (inStock) {
             Order order = mapToOrder(orderRequest);
             orderRepository.save(order);
+            OrderPlacedEvent event = new OrderPlacedEvent(
+                    order.getOrderNumber(),
+                    order.getSkuCode(),
+                    order.getQuantity(),
+                    order.getPrice()
+            );
+
+            kafkaTemplate.send("order-placed-v2", event);
+            System.out.println("Sent OrderPlacedEvent to Kafka: " + event);
+
         } else {
             throw new RuntimeException("Product with skuCode " + orderRequest.skuCode() + " is not in stock");
         }
