@@ -1,63 +1,31 @@
 # Ecommerce Microservices
 
-A hands-on Spring Boot microservices project that demonstrates service decomposition, service discovery, API gateway routing, synchronous inter-service communication, JWT authentication, and Redis-backed session control.
+A Spring Boot microservices project that demonstrates service decomposition, centralized API gateway routing, service discovery, synchronous and asynchronous inter-service communication, JWT authentication, and Redis-backed session control.
 
-## Architecture
+## Overview
 
-This project consists of the following services:
+This project is built as a multi-service ecommerce backend with the following components:
 
-- **product-service**
-    - Manages product data
-    - Uses **MongoDB**
-- **order-service**
-    - Handles order creation
-    - Uses **MySQL**
-    - Calls inventory-service using **OpenFeign**
-- **inventory-service**
-    - Checks product stock availability
-    - Uses **MySQL**
-- **user-service**
-    - Handles user registration, login, and logout
-    - Uses **MySQL**
-    - Generates **JWT**
-    - Stores login state in **Redis**
-- **api-gateway**
-    - Single entry point for client requests
-    - Routes requests to backend services
-    - Validates JWT and checks Redis-backed login state
-- **eureka**
-    - Service registry and discovery server
+- **api-gateway**  
+  Centralized entry point for all client requests. Performs JWT validation and Redis-backed login-state checks before routing traffic to downstream services.
 
-## Tech Stack
+- **eureka**  
+  Service registry used for service discovery across microservices.
 
-- Java 17
-- Spring Boot 3
-- Spring Cloud
-- Spring Data JPA
-- Spring Data MongoDB
-- Spring Security
-- Spring Cloud Gateway
-- OpenFeign
-- Eureka
-- MySQL
-- MongoDB
-- Redis
-- Flyway
-- Maven
-- Docker
+- **user-service**  
+  Handles user registration, login, and logout. Generates JWT tokens and stores login state in Redis.
 
-## Features
+- **product-service**  
+  Manages product data using MongoDB.
 
-- Microservices architecture with multiple independent services
-- Service discovery using **Netflix Eureka**
-- Centralized routing with **API Gateway**
-- Synchronous service-to-service communication using **OpenFeign**
-- Product persistence with **MongoDB**
-- Order, inventory, and user persistence with **MySQL**
-- Database schema management with **Flyway**
-- JWT-based authentication
-- Redis-backed login session validation
-- Logout support with immediate token invalidation
+- **order-service**  
+  Creates and persists orders in MySQL. Calls `inventory-service` synchronously via OpenFeign and publishes order events to Kafka after successful order placement.
+
+- **inventory-service**  
+  Checks product stock availability and manages inventory data in MySQL.
+
+- **notification-service**  
+  Consumes Kafka order events asynchronously for post-order processing.
 
 ## Service Ports
 
@@ -67,173 +35,108 @@ This project consists of the following services:
 | order-service | 8081 |
 | inventory-service | 8082 |
 | user-service | 8083 |
+| notification-service | 8084 |
 | api-gateway | 9000 |
 | eureka | 8761 |
 | MySQL | 3307 |
 | MongoDB | 27017 |
 | Redis | 6379 |
+| Kafka Broker | 9092 |
+| Kafka UI | 8086 |
 
-## Project Flow
+## Tech Stack
 
-### Product Flow
-Client sends requests through `api-gateway` to `product-service` to manage products.
-
-### Order Flow
-1. Client sends order request to `api-gateway`
-2. Gateway validates JWT and Redis login state
-3. Request is routed to `order-service`
-4. `order-service` calls `inventory-service` through **Feign**
-5. If stock is available, order is saved successfully
-
-### Authentication Flow
-1. User registers through `user-service`
-2. User logs in through `/api/auth/login`
-3. `user-service` validates username/password
-4. `user-service` returns JWT and writes login state to Redis
-5. Client includes JWT in `Authorization: Bearer <token>`
-6. `api-gateway` validates JWT signature and Redis login state
-7. Protected endpoints are accessible only if both checks pass
-
-### Logout Flow
-1. Client calls `/api/auth/logout`
-2. `user-service` removes Redis login state
-3. Existing JWT becomes unusable immediately
-4. Further protected requests return `401 Unauthorized`
-
-## Prerequisites
-
-Make sure the following are available locally:
-
-- Java 17+
-- Maven
-- Docker
+- Java 17
+- Spring Boot 3
+- Spring Cloud
+- Spring Security
+- Spring Cloud Gateway
+- Netflix Eureka
+- OpenFeign
+- Spring Kafka
+- Spring Data JPA
+- Spring Data MongoDB
+- Spring Data Redis
 - MySQL
 - MongoDB
 - Redis
+- Apache Kafka
+- Flyway
+- Docker
+- Maven
 
-## Running the Project
+## Key Features
 
-### 1. Start infrastructure dependencies
-Start MongoDB, MySQL, and Redis.
+- Microservices architecture with independently running services
+- Centralized ingress through API Gateway
+- Service discovery using Eureka
+- JWT-based authentication
+- Redis-backed login-state validation
+- Logout support with immediate token invalidation
+- Synchronous communication via OpenFeign
+- Event-driven communication via Kafka
+- Persistent storage across MySQL and MongoDB
+- Flyway-based schema migration for relational services
 
-### 2. Start Eureka
+## Core Flows
+
+### Authentication and Session Control
+- Users register and log in through `user-service`
+- `user-service` validates credentials against MySQL
+- On successful login, JWT is generated and login state is stored in Redis
+- `api-gateway` validates both JWT and Redis-backed session state for protected requests
+- Logout removes the Redis login-state entry so existing tokens become invalid immediately
+
+### Order Placement
+- Client sends order request through `api-gateway`
+- Gateway authenticates the request
+- `order-service` checks stock by calling `inventory-service` synchronously via OpenFeign
+- If stock is available, the order is saved in MySQL
+
+### Event-Driven Processing
+- After a successful order, `order-service` publishes an `OrderPlacedEvent` to Kafka
+- `notification-service` consumes the event asynchronously
+- This extends the system from purely synchronous microservices to a hybrid synchronous + event-driven architecture
+
+## What This Project Demonstrates
+
+- Building a multi-module Spring Boot microservices system
+- Using API Gateway as a centralized security and routing layer
+- Applying JWT authentication with Redis-backed session control
+- Implementing logout with immediate token invalidation
+- Combining synchronous service calls with asynchronous event-driven messaging
+- Integrating multiple data stores across services
+- Managing relational schema evolution with Flyway
+
+## Future Improvements
+
+- Role-based authorization (USER / ADMIN)
+- Refresh token support
+- Header propagation of authenticated user identity to downstream services
+- Email integration in `notification-service`
+- Kafka retry handling and dead-letter queues
+- Avro + Schema Registry for stronger event contracts
+- Resilience patterns such as retry and circuit breaker
+- Distributed tracing and observability
+- Kubernetes deployment
+
+## Run the Project
+
+Start the required infrastructure first:
+
+- MySQL
+- MongoDB
+- Redis
+- Kafka
+- Kafka UI
+
+Then start the services:
+
 ```bash
 mvn -pl eureka spring-boot:run
-
-3. Start backend services
 mvn -pl product-service spring-boot:run
 mvn -pl inventory-service spring-boot:run
 mvn -pl order-service spring-boot:run
 mvn -pl user-service spring-boot:run
-4. Start API Gateway
+mvn -pl notification-service spring-boot:run
 mvn -pl api-gateway spring-boot:run
-5. Open Eureka dashboard
-
-Visit:
-
-http://localhost:8761
-Example API Endpoints
-Register
-POST /api/auth/register
-
-Request body:
-
-{
-  "username": "alice",
-  "password": "password123"
-}
-Login
-POST /api/auth/login
-
-Request body:
-
-{
-  "username": "alice",
-  "password": "password123"
-}
-
-Response:
-
-{
-  "token": "eyJ..."
-}
-Logout
-POST /api/auth/logout
-Authorization: Bearer <token>
-Create Order
-POST /api/order
-Authorization: Bearer <token>
-Content-Type: application/json
-
-Request body:
-
-{
-  "skuCode": "iphone_15",
-  "price": 1000,
-  "quantity": 1
-}
-Check Inventory
-GET /api/inventory?skuCode=iphone_15&quantity=1
-Authorization: Bearer <token>
-
-
-
-
-
-Security Design
-
-This project uses a hybrid JWT authentication design:
-
-JWT is generated by user-service
-
-Login state is stored in Redis
-
-api-gateway validates:
-
-JWT signature and expiration
-
-Redis login state
-
-This allows the system to support:
-
-stateless token transport
-
-centralized authentication at the gateway
-
-immediate token invalidation on logout
-
-Future Improvements
-
-Role-based authorization (USER / ADMIN)
-
-Refresh token support
-
-Redis-based single-session control
-
-Header propagation of authenticated username to downstream services
-
-Centralized configuration with Config Server
-
-Distributed tracing and observability
-
-Kubernetes deployment
-
-Learning Outcomes
-
-This project demonstrates practical experience with:
-
-Microservices decomposition
-
-Service discovery
-
-API gateway routing
-
-Synchronous inter-service communication
-
-JWT authentication
-
-Redis-backed session control
-
-Database migration management
-
-Multi-database integration across services
