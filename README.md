@@ -141,5 +141,51 @@ mvn -pl user-service spring-boot:run
 mvn -pl notification-service spring-boot:run
 mvn -pl api-gateway spring-boot:run
 
++----------------+         +----------------------------------+
+| Client / User  | ------> | API Gateway                      |
+|                |         | - JWT Validation                 |
+|                |         | - Redis Session Check            |
++----------------+         +----------------+-----------------+
+                                            |
+             +------------------------------+------------------------------+
+             |                              |                              |
+             v                              v                              v
+     +---------------+              +---------------+              +---------------+
+     | User Service  |              | Order Service |              | Product Service|
+     |               |              |               |              |                |
+     +-------+-------+              +-------+-------+              +-------+--------+
+             |                              |                              |
+             v                              v                              v
+     +---------------+              +---------------+              +---------------+
+     | MySQL Users   |              | MySQL Orders  |              | MongoDB       |
+     |               |              |               |              | Products      |
+     +---------------+              +---------------+              +---------------+
 
+             |
+             v
+     +---------------+
+     | Redis         |
+     | Login State   |
+     +---------------+
+
+                     Order Service -- OpenFeign Sync Call --> Inventory Service
+                                                             |
+                                                             v
+                                                      +---------------+
+                                                      | MySQL         |
+                                                      | Inventory     |
+                                                      +---------------+
+
+                     Order Service -- publish event --> Kafka (order-placed)
+                                                      |
+                                                      v
+                                             +----------------------+
+                                             | Notification Service |
+                                             +----------------------+
+
+     API Gateway --------\
+     User Service --------\
+     Order Service --------> Eureka Service Discovery
+     Product Service ------/
+     Inventory Service ----/
 
