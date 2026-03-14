@@ -140,3 +140,6 @@ mvn -pl order-service spring-boot:run
 mvn -pl user-service spring-boot:run
 mvn -pl notification-service spring-boot:run
 mvn -pl api-gateway spring-boot:run
+
+
+
